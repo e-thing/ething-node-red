@@ -1,0 +1,28 @@
+{
+  "name": "node-red-contrib-ething",
+  "version": "0.1.0",
+  "description": "ething home automation for node-red",
+  "dependencies": {
+    "ething-js": "^0.1.0",
+    "eventsource": "^1.0.5",
+    "request": "^2.85.0"
+  },
+  "author": {
+    "name": "Adrien Mezerette",
+    "email": "a.mezerette@gmail.com"
+  },
+  "keywords": [
+    "ething"
+  ],
+  "node-red": {
+    "nodes": {
+      "ething": "ething.js"
+    }
+  },
+  "devDependencies": {
+    "node-red-node-test-helper": "^0.1.5"
+  },
+  "scripts": {
+    "test": "mocha \"test/**/*_spec.js\""
+  }
+}

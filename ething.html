@@ -1,0 +1,667 @@
+
+<script type="text/javascript">
+	RED.nodes.registerType('ething-controller', {
+		category: 'config',
+		color: '#207cc1',
+		defaults: {
+			name: {value:"",required:true},
+			host: {value:"localhost",required:true},
+			port: {value:8000,	required:false /*,	validate:RED.validators.number() */}
+		},
+		credentials: {
+			password: {type:"password"}
+		},
+		icon: "white-globe.png",
+		label: function() {
+			return this.name || 'EThing controller';
+		}
+	});
+</script>
+
+<script type="text/x-red" data-template-name="ething-controller">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-host"><i class="fa fa-globe"></i> Host</label>
+        <input type="text" id="node-config-input-host" placeholder="Host">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-port"><i class="icon-bookmark"></i> Port</label>
+        <input type="number" id="node-config-input-port" placeholder="Port" minimum="0" maximum="65535">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-password"><i class="fa fa-user-secret"></i> Password</label>
+        <input type="password" id="node-config-input-password" placeholder="password">
+    </div>
+
+</script>
+
+<script type="text/x-red" data-help-name="ething-controller">
+    <p>Configuration node for communication with an EThing controller.</p>
+	<p></p>
+	<b>Configuration</b>
+    <ul>
+        <li><b>Name :</b> Specify a name for the configuration node</li>
+        <li><b>Host :</b> Specify the hostname or ip address</li>
+        <li><b>Port :</b> (Optionally) Specify the ip port</li>
+        <li><b>Password :</b> (Optionally) Specify the password to authenticate</li>
+   	 </ul>
+</script>
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-events',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			filter: {value:""}
+        },
+        inputs: 0,
+        outputs: 1,
+		outputLabels: ["events"],
+        icon: "feed.png",
+        label: function() {
+            return(this.name||"EThing events");
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-events">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	<div class="form-row">
+        <label for="node-input-filter"><i class="fa fa-tag"></i> Filter</label>
+        <input type="text" id="node-input-filter" placeholder="DeviceDataSet ResourceCreated ...">
+    </div>
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-events">
+    <p>Watches the event bus.</p>
+	<p></p>
+	<b>Configuration</b>
+    <ul>
+        <li><b>Name :</b> Optionally specify a name</li>
+        <li><b>Controller :</b> Select the EThing controller</li>
+   	 </ul>
+	<p></p>
+</script>
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-resource-list',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			query: {value:"", required:false}
+        },
+        inputs: 1,
+        outputs: 1,
+		inputLabels: "query (optional)",
+		outputLabels: ["resources"],
+        icon: "inject.png",
+        label: function() {
+            return(this.name||"EThing list resource");
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-resource-list">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	<div class="form-row">
+        <label for="node-input-query"><i class="fa fa-tag"></i> Query</label>
+        <input type="text" id="node-input-query" placeholder="Query">
+    </div>
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-resource-list">
+    <p>List resources</p>
+</script>
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+	
+	function listResources(options) {
+		
+		$.extend({
+			node: null,
+			allowEmpty: false,
+			filter: null,
+			onchange: null
+		}, options);
+		
+		var node = options.node;
+		var resources_cache = {};
+		
+		if(typeof options.onchange === 'function'){
+			$('#node-input-resource').change(function(){
+				var $this = $(this), id = $this.val(), resource = null, resources = $this.data('resources');
+				
+				if(resources){
+					for(var i in resources){
+						if(resources[i].id === id){
+							resource = resources[i];
+							break;
+						}
+					}
+				}
+				
+				options.onchange(resource);
+				
+			});
+		}
+		
+    	function updateResourceSelection(controller, resourceId) {
+
+    		var $resourceSelect = $('#node-input-resource');
+			var id = Math.floor(Math.random()*1000000);
+			
+			var controllerId = controller ? controller.id : null;
+
+            $resourceSelect.children().remove();
+			$resourceSelect.data('id', id);
+			$resourceSelect.data('resources', null);
+
+            if ( controller ) {
+				
+				var controllerId = controller.id;
+				
+				if(!resources_cache[controllerId]){
+					resources_cache[controllerId] = $.getJSON('ething/resources');
+				}
+				
+				resources_cache[controllerId].done(function(resources) {
+					
+					if($resourceSelect.data('id') !== id) return; // too late !
+					
+					$resourceSelect.data('resources', resources);
+					
+					if ( options.allowEmpty )
+						$resourceSelect.append('<option value=""></option>');
+					
+					resources.forEach(function(resource){
+						
+						if(typeof options.filter === 'function' && !options.filter(resource)) return;
+						
+						var $opt = $('<option>' + resource.name + ' <small style="color:grey;">' + resource.type + '</small></option>');
+						$opt.attr('value', resource.id);
+						$resourceSelect.append($opt);
+					});
+					
+					$resourceSelect.val(resourceId);
+					$resourceSelect.change();
+					
+				}).fail(function(err){
+					console.warn("error : " + JSON.stringify(err));
+				});
+				
+            }
+		}
+
+    	updateResourceSelection(RED.nodes.node(node.controller), node.resource);
+
+		$('#node-input-controller').change(function(ev) {
+	        updateResourceSelection(RED.nodes.node($('#node-input-controller').val()), $('#node-input-resource').val() || node.resource);
+		});
+
+
+	}
+</script>
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-resource-get',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false}
+        },
+        inputs: 1,
+        outputs: 1,
+		inputLabels: "resource or id (optional)",
+		outputLabels: ["resource"],
+        icon: "arrow-in.png",
+        label: function() {
+            return(this.name||"EThing get resource");
+        },
+		oneditprepare: function() {
+        	listResources({
+				node: this,
+				allowEmpty: true
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-resource-get">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-resource-get">
+    <p>get resource</p>
+</script>
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-device-execute',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false},
+			operation: {value:"", required:true},
+			binary: {value:false}
+        },
+        inputs: 1,
+        outputs: 1,
+		inputLabels: "arguments (optional)",
+		outputLabels: ["result"],
+        icon: "function.png",
+        label: function() {
+            return(this.name||"EThing execute device");
+        },
+		oneditprepare: function() {
+			
+			function updateOperationInput(resource, $operationInput){
+				
+				var $newOperationInput = null;
+				
+				if(resource){
+					if(!$operationInput.is('select')){
+						$newOperationInput = $('<select style="width: 250px;"></select>');
+					}
+				} else {
+					if(!$operationInput.is('input')){
+						$newOperationInput = $('<input type="text" placeholder="Operation name">');
+					}
+				}
+				
+				if($newOperationInput){
+					$newOperationInput.attr('id', $operationInput.attr('id'));
+					$operationInput.replaceWith($newOperationInput);
+					return $newOperationInput;
+				}
+				
+				return $operationInput;
+			}
+			
+        	listResources({
+				node: this,
+				allowEmpty: true,
+				filter: function(resource){
+					return resource.extends.indexOf('Device') !== -1;
+				},
+				onchange: function(resource){
+					var $operationInput = $('#node-input-operation');
+					var value = $operationInput.val();
+					
+					$operationInput = updateOperationInput(resource, $operationInput);
+					
+					if(resource){
+						$operationInput.empty();
+						resource.methods.forEach(function(method){
+							var $opt = $('<option>' + method + '</option>');
+							$opt.attr('value', method);
+							$operationInput.append($opt);
+						});
+					}
+					
+					$operationInput.val(value);
+				}
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-device-execute">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-tag"></i> Operation</label>
+        <input type="text" id="node-input-operation" placeholder="Operation name">
+    </div>
+	
+	<div class="form-row">
+		<label>&nbsp;</label>
+        <input type="checkbox" id="node-input-binary" placeholder="" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-binary" style="width: 70%;">Binary data as result ?</label>
+    </div>
+	
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-device-execute">
+    <p>execute a device's operation</p>
+</script>
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-file-read',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false},
+			binary: {value:false}
+        },
+        inputs: 1,
+        outputs: 1,
+		inputLabels: "resource (optional)",
+		outputLabels: ["content"],
+        icon: "file.png",
+        label: function() {
+            return(this.name||"EThing read file");
+        },
+		oneditprepare: function() {
+        	listResources({
+				node: this,
+				allowEmpty: true,
+				filter: function(resource){
+					return resource.extends.indexOf('File') !== -1;
+				}
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-file-read">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+	
+	<div class="form-row">
+		<label>&nbsp;</label>
+        <input type="checkbox" id="node-input-binary" placeholder="" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-binary" style="width: 70%;">Binary data ?</label>
+    </div>
+	
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-file-read">
+    <p>read a file</p>
+</script>
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-file-write',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false},
+			append: {value:false}
+        },
+        inputs: 1,
+        outputs: 0,
+		inputLabels: "content",
+        icon: "file.png",
+        label: function() {
+            return(this.name||"EThing write file");
+        },
+		oneditprepare: function() {
+			
+        	listResources({
+				node: this,
+				allowEmpty: true,
+				filter: function(resource){
+					return resource.extends.indexOf('File') !== -1;
+				}
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-file-write">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+	
+	<div class="form-row">
+		<label>&nbsp;</label>
+        <input type="checkbox" id="node-input-append" placeholder="" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-append" style="width: 70%;">Append</label>
+    </div>
+	
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-file-write">
+    <p>write into a file</p>
+</script>
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-table-read',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false},
+			start: {value: 0, required:false},
+			length: {value: 0, required:false},
+			sort: {value:"", required:false},
+			query: {value:"", required:false}
+        },
+        inputs: 1,
+        outputs: 1,
+		inputLabels: "resource (optional)",
+		outputLabels: ["content"],
+        icon: "db.png",
+        label: function() {
+            return(this.name||"EThing read table");
+        },
+		oneditprepare: function() {
+			
+        	listResources({
+				node: this,
+				allowEmpty: true,
+				filter: function(resource){
+					return resource.extends.indexOf('Table') !== -1;
+				}
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-table-read">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-start"><i class="fa fa-crosshairs"></i> Start</label>
+    	<input type="number" id="node-input-start">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-length"><i class="fa fa-crosshairs"></i> Length</label>
+    	<input type="number" id="node-input-length">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-sort"><i class="fa fa-globe"></i> Sort</label>
+        <input type="text" id="node-input-sort" placeholder="-date">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-query"><i class="fa fa-globe"></i> Query</label>
+        <input type="text" id="node-input-query">
+    </div>
+	
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-table-read">
+    <p>get the content of a table</p>
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    RED.nodes.registerType('ething-table-insert',{
+        category: 'ething',
+        color: '#207cc1',
+        defaults: {
+            name: {value:""},
+		    controller: {value:"", type:"ething-controller", required:true},
+			resource: {value:"", required:false}
+        },
+        inputs: 1,
+        outputs: 0,
+		inputLabels: "data",
+        icon: "db.png",
+        label: function() {
+            return(this.name||"EThing insert table");
+        },
+		oneditprepare: function() {
+			
+        	listResources({
+				node: this,
+				allowEmpty: true,
+				filter: function(resource){
+					return resource.extends.indexOf('Table') !== -1;
+				}
+			});
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ething-table-insert">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"><i class="fa fa-globe"></i> Controller</label>
+        <input type="text" id="node-input-controller">
+    </div>
+	
+	<div class="form-row">
+        <label for="node-input-resource"><i class="fa fa-crosshairs"></i> Resource</label>
+    	<select id="node-input-resource" style="width: 250px;"></select>
+    </div>
+	
+</script>
+
+
+<script type="text/x-red" data-help-name="ething-table-insert">
+    <p>Insert data in a table</p>
+</script>
+
+
