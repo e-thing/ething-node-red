@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "ething home automation for node-red",
   "dependencies": {
-    "ething-js": "^0.1.2",
+    "ething-js": "^0.1.9",
     "eventsource": "^1.0.5",
     "request": "^2.85.0"
   },
