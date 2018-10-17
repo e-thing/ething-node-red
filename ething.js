@@ -1,163 +1,78 @@
-var EventSource = require('eventsource');
 var request = require('request');
 var EThing = require("ething-js");
+var SSE = require('./sse.js')
 
 
 
 module.exports = function(RED) {
 
-
+  /*
+  Controller node
+  */
   function EThingControllerNode(config) {
     RED.nodes.createNode(this, config);
+
     var node = this;
 
-    node.log(JSON.stringify(config));
+    node.log('config: ' + JSON.stringify(config));
 
     // this controller node handles all communication with the configured ething server
 
-    var state = {
-      error: false,
-      connected: false
-    }
+    var host = config.host || 'localhost';
+    var port = config.port || 8000;
 
-    EThing.config.serverUrl = 'http://' + config.host + ':' + String(config.port || 80);
+    EThing.config.serverUrl = 'http://' + config.host + ':' + String(port);
 
-    if (this.credentials.login && this.credentials.password) {
+    node.log('EThing api url: ' + EThing.config.serverUrl)
+
+    if (this.credentials && this.credentials.login && this.credentials.password) {
+      node.log('EThing set credentials: ' + this.credentials.login + ' ' + this.credentials.password)
       EThing.auth.setBasicAuth(this.credentials.login, this.credentials.password);
     }
 
     this.ething = EThing;
 
+    // add the EThing instance to the global context
     node.context().global.set("EThing", EThing);
 
-    function setState(newstate) {
-      var updatedKeys = [];
+    node.SSE = SSE;
 
-      for (var key in newstate) {
-        if (!state.hasOwnProperty(key) || state[key] !== newstate[key]) {
-          updatedKeys.push(key);
-          state[key] = newstate[key];
-        }
-      }
+    /*
+    SSE events binding
+    */
+    SSE.on('connected', function () {
+      node.log('[EThingControllerNode] events server connected');
+      node.emit("stateChanged");
+    })
 
-      if (updatedKeys.length) {
+    SSE.on('disconnected', function () {
+      node.warn('[EThingControllerNode] events server disconnected');
+      node.emit("stateChanged");
+    })
 
-        node.log('state changed: ' + JSON.stringify(state));
-        node.emit('stateChanged', state, updatedKeys);
-      }
-    }
+    SSE.on('message', function (event) {
+      node.log('[EThingControllerNode] events server msg received: ' + JSON.stringify(event));
 
-    function getConnectionString(config) {
-      var url = "http://";
-			var login = node.credentials.login;
-      var password = node.credentials.password;
+      node.emit("event", event);
+    })
 
-      if ( (typeof login === 'string') && (login.length != 0)  && (typeof password === 'string') && (password.length != 0)) {
-        url += login + ":" + password + "@";
-      }
-
-      url += config.host;
-
-      if (config.port != undefined) {
-        var port = String(config.port).trim();
-        if (port.length != 0)
-          url += ":" + port;
-      }
-
-      return url;
-    }
 
     function startEventServer() {
 
-      if (node.es) return; // already running !
-
-      url = getConnectionString(config) + "/api/events";
-
-      node.log('starting events server at ' + url);
-
-      setState({
-        error: false,
-        connected: false
-      })
-
-      node.es = new EventSource(url, {});
-
-      node.es.onopen = function(event) {
-        setState({
-          error: false,
-          connected: true
-        })
-      };
-
-      node.es.onmessage = function(msg) {
-
-        //node.log(msg.data);
-
-        setState({
-          error: false,
-          connected: true
-        })
-
-        try {
-          // update the node status with the Item's new state
-          var event = JSON.parse(msg.data);
-
-          node.emit("event", event);
-
-        } catch (e) {
-          // report an unexpected error
-          node.warn("Event decoding error : " + e)
-        }
-
-      };
-
-      node.es.onerror = function(err) {
-        if (err.type && (JSON.stringify(err.type) === '{}'))
-          return; // ignore
-
-        setState({
-          error: true
-        })
-
-        node.warn('Event source error : ' + JSON.stringify(err));
-
-        if (err.status) {
-          if ((err.status == 503) || (err.status == "503") || (err.status == 404) || (err.status == "404"))
-            // the EventSource object has given up retrying ... retry reconnecting after 10 seconds
-
-            node.es.close();
-          delete node.es;
-
-          setState({
-            connected: false
-          })
-
-          setTimeout(function() {
-            startEventServer();
-          }, 5000);
-
-        } else if (err.type && err.type.code) {
-          // the EventSource object is retrying to reconnect
-        } else {
-          // no clue what the error situation is
-        }
-      };
-
-    }
-
-    function stopEventServer() {
-      if (node.es) {
-        node.log('stop event server');
-        node.es.close();
-        delete node.es;
-        setState({
-          error: false,
-          connected: false
-        });
+      if (SSE.state === SSE.CLOSED) {
+        node.log('[EThingControllerNode] starting events server');
+        SSE.start()
       }
     }
 
-    function updateEventServer() {
+    function stopEventServer() {
+      if (SSE.state !== SSE.CLOSED) {
+        node.log('[EThingControllerNode] stopping events server');
+        SSE.stop()
+      }
+    }
+
+    function updateEventServerState() {
       if (node.listenerCount('event')) {
         // start the events server
         startEventServer();
@@ -168,11 +83,11 @@ module.exports = function(RED) {
     }
 
     this.on("newListener", function(event, listener) {
-      if (event === "event") setTimeout(updateEventServer, 1);
+      if (event === "event") setTimeout(updateEventServerState, 1);
     });
 
     this.on("removeListener", function(event, listener) {
-      if (event === "event") setTimeout(updateEventServer, 1);
+      if (event === "event") setTimeout(updateEventServerState, 1);
     });
 
     this.on("close", function() {
@@ -182,6 +97,7 @@ module.exports = function(RED) {
     });
 
   }
+
   RED.nodes.registerType("ething-controller", EThingControllerNode, {
     credentials: {
       password: {
@@ -190,6 +106,9 @@ module.exports = function(RED) {
     }
   });
 
+  /*
+  list resources admin endpoint
+  */
   RED.httpAdmin.get('/ething/resources', function(req, res) {
     EThing.list().then(function(resources) {
       res.json(resources.map(function(resource) {
@@ -199,8 +118,12 @@ module.exports = function(RED) {
   });
 
 
-  function EThingEvents(config) {
+  /*
+  Events node
+  */
+  function EThingEventsNode(config) {
     RED.nodes.createNode(this, config);
+
     var controller = RED.nodes.getNode(config.controller);
     var node = this;
 
@@ -224,12 +147,26 @@ module.exports = function(RED) {
       });
     };
 
-    var onstatechanged = function(state) {
+    var onstatechanged = function() {
       // update node status
+      var fillColor = "grey";
+      var text = ''
+
+      if (SSE.state == SSE.CLOSED) {
+        fillColor = "red";
+        text = "disconnected";
+      } else if (SSE.state == SSE.OPEN) {
+        fillColor = "green";
+        text = "connected";
+      } else if (SSE.state == SSE.OPENING) {
+        fillColor = "grey";
+        text = "connecting";
+      }
+
       node.status({
-        fill: state.connected ? (state.error ? "red" : "green") : "grey",
+        fill: fillColor,
         shape: "ring",
-        text: state.error ? ("error: " + state.error) : (state.connected ? "connected" : "disconnected")
+        text: text
       });
     };
 
@@ -242,11 +179,16 @@ module.exports = function(RED) {
     });
 
   }
-  RED.nodes.registerType("ething-events", EThingEvents);
 
+  RED.nodes.registerType("ething-events", EThingEventsNode);
 
-  function EThingResourceList(config) {
+  /*
+  OTHER NODES
+  */
+
+  function EThingResourceList (config) {
     RED.nodes.createNode(this, config);
+
     var controller = RED.nodes.getNode(config.controller);
     var node = this;
 
@@ -264,7 +206,7 @@ module.exports = function(RED) {
         }
       }
 
-      controller.ething.list(q).then(function(resources) {
+      EThing.list(q).then(function(resources) {
         node.send({
           payload: resources
         });
@@ -275,6 +217,7 @@ module.exports = function(RED) {
     });
 
   }
+
   RED.nodes.registerType("ething-resource-list", EThingResourceList);
 
 
@@ -288,7 +231,7 @@ module.exports = function(RED) {
       var id = config.resource || msg.payload;
 
       if (id) {
-        controller.ething.get(id).then(function(resource) {
+        EThing.get(id).then(function(resource) {
           node.send({
             payload: resource
           });
@@ -301,9 +244,8 @@ module.exports = function(RED) {
     });
 
   }
+
   RED.nodes.registerType("ething-resource-get", EThingResourceGet);
-
-
 
 
   function EThingDeviceExecute(config) {
@@ -330,7 +272,7 @@ module.exports = function(RED) {
 
       if (id) {
         if (operation) {
-          controller.ething.Device.execute(id, operation, args, binary).then(function(result) {
+          EThing.Device.execute(id, operation, args, binary).then(function(result) {
             node.send({
               payload: result,
               resource: msg.resource || id,
@@ -349,6 +291,7 @@ module.exports = function(RED) {
     });
 
   }
+
   RED.nodes.registerType("ething-device-execute", EThingDeviceExecute);
 
 
@@ -374,7 +317,7 @@ module.exports = function(RED) {
       }
 
       if (id) {
-        controller.ething.File.read(id, binary).then(function(content) {
+        EThing.File.read(id, binary).then(function(content) {
           node.send({
             payload: content,
             resource: msg.resource || id
@@ -389,6 +332,7 @@ module.exports = function(RED) {
     });
 
   }
+
   RED.nodes.registerType("ething-file-read", EThingFileRead);
 
 
@@ -414,7 +358,7 @@ module.exports = function(RED) {
       }
 
       if (id) {
-        controller.ething.File.write(id, content, append).then(function(resource) {
+        EThing.File.write(id, content, append).then(function(resource) {
           // do nothing
         }).catch(function(err) {
           node.warn(String(err));
@@ -461,7 +405,7 @@ module.exports = function(RED) {
       }
 
       if (id) {
-        controller.ething.Table.select(id, options).then(function(content) {
+        EThing.Table.select(id, options).then(function(content) {
           node.send({
             payload: content,
             resource: msg.resource || id
@@ -500,7 +444,7 @@ module.exports = function(RED) {
       }
 
       if (id) {
-        controller.ething.Table.insert(id, data).then(function(resource) {
+        EThing.Table.insert(id, data).then(function(resource) {
           // do nothing
         }).catch(function(err) {
           node.warn(String(err));

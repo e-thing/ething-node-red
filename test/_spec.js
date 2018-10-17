@@ -9,7 +9,7 @@ describe('ething Node', function () {
   });
 
   it('should be loaded', function (done) {
-    var flow = [{ id: "n0", type: "ething-controller", name: "ething-controller name", host: 'localhost', port: 80 }];
+    var flow = [{ id: "n0", type: "ething-controller", name: "ething-controller name", host: 'localhost', port: 8000 }];
     helper.load(ething, flow, {
 		n0: {
 			password: "admin"
@@ -20,10 +20,10 @@ describe('ething Node', function () {
       done();
     });
   });
-  
+
   it('should list all resources', function (done) {
     var flow = [
-      { id: "n0", type: "ething-controller", name: "ething-controller name", host: 'localhost', port: 80 },
+      { id: "n0", type: "ething-controller", name: "ething-controller name", host: 'localhost', port: 8000 },
       { id: "n1", type: "ething-resource-list", name: "ething-resource-list name", controller: "n0", wires:[["n2"]] },
       { id: "n2", type: "helper" }
     ];
@@ -41,5 +41,5 @@ describe('ething Node', function () {
       n1.receive({ payload: "" });
     });
   });
-  
+
 });

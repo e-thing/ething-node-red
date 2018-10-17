@@ -185,9 +185,14 @@
 
 
 <script type="text/javascript">
+
+	/*
+	Global utility functions
+	*/
+
 	function listResources(options) {
 
-		$.extend({
+		options = Object.assign({
 			node: null,
 			allowEmpty: false,
 			filter: null,
@@ -222,8 +227,6 @@
 
 			var $resourceSelect = $('#node-input-resource');
 			var id = Math.floor(Math.random() * 1000000);
-
-			var controllerId = controller ? controller.id : null;
 
 			$resourceSelect.children().remove();
 			$resourceSelect.data('id', id);
