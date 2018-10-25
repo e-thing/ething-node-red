@@ -25,7 +25,7 @@ module.exports = function(RED) {
 
     node.log('EThing api url: ' + EThing.config.serverUrl)
 
-    if (this.credentials && this.credentials.login && this.credentials.password) {
+    if (this.credentials.login && this.credentials.password) {
       node.log('EThing set credentials: ' + this.credentials.login + ' ' + this.credentials.password)
       EThing.auth.setBasicAuth(this.credentials.login, this.credentials.password);
     }
@@ -100,6 +100,9 @@ module.exports = function(RED) {
 
   RED.nodes.registerType("ething-controller", EThingControllerNode, {
     credentials: {
+      login: {
+        type: "text"
+      },
       password: {
         type: "password"
       }
@@ -206,12 +209,14 @@ module.exports = function(RED) {
         }
       }
 
+      node.log('query string : ' + q);
+
       EThing.list(q).then(function(resources) {
         node.send({
           payload: resources
         });
       }).catch(function(err) {
-        node.warn(String(err));
+        node.warn('server error : ' + String(err));
       });
 
     });

@@ -404,7 +404,7 @@
 				node: this,
 				allowEmpty: true,
 				filter: function(resource) {
-					return resource.extends.indexOf('Device') !== -1;
+					return resource.extends.indexOf('resources/Device') !== -1;
 				},
 				onchange: function(resource) {
 					var $operationInput = $('#node-input-operation');
@@ -502,7 +502,7 @@
 				node: this,
 				allowEmpty: true,
 				filter: function(resource) {
-					return resource.extends.indexOf('File') !== -1;
+					return resource.extends.indexOf('resources/File') !== -1;
 				}
 			});
 		}
@@ -575,7 +575,7 @@
 				node: this,
 				allowEmpty: true,
 				filter: function(resource) {
-					return resource.extends.indexOf('File') !== -1;
+					return resource.extends.indexOf('resources/File') !== -1;
 				}
 			});
 		}
@@ -665,7 +665,7 @@
 				node: this,
 				allowEmpty: true,
 				filter: function(resource) {
-					return resource.extends.indexOf('Table') !== -1;
+					return resource.extends.indexOf('resources/Table') !== -1;
 				}
 			});
 		}
@@ -750,7 +750,7 @@
 				node: this,
 				allowEmpty: true,
 				filter: function(resource) {
-					return resource.extends.indexOf('Table') !== -1;
+					return resource.extends.indexOf('resources/Table') !== -1;
 				}
 			});
 		}
